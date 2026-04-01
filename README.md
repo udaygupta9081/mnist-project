@@ -1,11 +1,10 @@
 # 🧠 MNIST Digit Classifier Web App
 
 A Machine Learning powered web application that predicts handwritten digits (0–9) using the MNIST dataset. Built with Flask and deployed as an interactive web interface.
-
+* To see notebook go to https://github.com/udaygupta9081/mnist-digit-classification
 ---
 
 ## 🚀 Features
-* To see notebook go to https://github.com/udaygupta9081/mnist-digit-classification
 * ✍️ Draw digits directly on the canvas
 * 🤖 Real-time prediction using trained ML model
 * 🌐 Simple and interactive web interface
