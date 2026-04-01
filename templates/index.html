@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MNIST Canvas Predictor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ["Space Grotesk", "sans-serif"],
+            mono: ["IBM Plex Mono", "monospace"],
+          },
+          colors: {
+            shell: "#f5efe3",
+            ink: "#0f172a",
+            spark: "#ff7a18",
+            tide: "#0ea5e9",
+            fern: "#22c55e",
+          },
+          boxShadow: {
+            glow: "0 30px 80px rgba(15, 23, 42, 0.16)",
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+
+<body class="min-h-screen bg-shell font-display text-ink selection:bg-amber-300/70">
+  <div class="page-shell relative overflow-hidden px-4 py-8 sm:px-6 lg:px-8">
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <main class="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+      <section
+        class="relative overflow-hidden rounded-[2rem] border border-slate-900/10 bg-white/80 p-8 shadow-glow backdrop-blur xl:p-10">
+        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-spark via-amber-400 to-tide"></div>
+
+        <div class="flex flex-wrap items-start justify-between gap-6">
+          <div class="max-w-3xl">
+            <p
+              class="inline-flex rounded-full border border-slate-900/10 bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.32em] text-white">
+              Flask + MNIST
+            </p>
+            <h1 class="mt-6 max-w-3xl text-4xl font-bold tracking-[-0.04em] text-slate-950 sm:text-5xl">
+              Draw a digit and let the saved model read and predict it live.
+            </h1>
+            <p class="mt-5 max-w-2xl text-base leading-8 text-slate-600">
+              This interface converts your drawing into a centered 28 x 28 image, then automatically
+              checks whether <span class="font-mono text-slate-900">pipe.pkl</span> expects raw pixel
+              values or PCA-transformed features. Based on that, it applies the required preprocessing
+              and sends the data to the model to generate the prediction.
+            </p>
+          </div>
+        </div>
+
+        <section
+          class="mt-8 rounded-[1.75rem] border px-5 py-5 {% if model_ready %}border-emerald-300 bg-emerald-50 text-emerald-950{% else %}border-rose-300 bg-rose-50 text-rose-950{% endif %}">
+          <div class="flex items-start gap-3">
+            <span class="status-dot {% if model_ready %}status-ready{% else %}status-error{% endif %}"></span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold uppercase tracking-[0.24em]">
+                {% if model_ready %}Model Ready{% else %}Startup Issue{% endif %}
+              </p>
+              <p class="mt-1 text-sm leading-6">
+                {% if model_ready %}
+                The service is set up to evaluate handwritten digits directly from the browser canvas.
+                <span class="mt-2 block font-semibold">Model accuracy: 96.025%</span>
+                {% else %}
+                {{ boot_error }}
+                {% endif %}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <div class="mt-6 rounded-[1.75rem] border border-slate-900/10 bg-slate-50/90 p-6">
+          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">About</p>
+
+          <div class="mt-5 grid gap-6 text-sm leading-7 text-slate-700 lg:grid-cols-2">
+            <div class="space-y-5">
+              <div>
+                <p class="text-base font-bold text-slate-950">Profile</p>
+                <p class="mt-2">
+                  I am an MCA student at IIIT Vadodara with a strong focus on Data Science and Machine Learning.
+                  I have hands-on experience using Python (NumPy, Pandas, Matplotlib, Seaborn) for data
+                  analysis and building data-driven solutions.
+                </p>
+                <p class="mt-3">
+                  I have worked on real-world datasets involving data cleaning, EDA, feature engineering,
+                  and model building. This MNIST digit recognition project highlights my ability to solve
+                  classification problems and deploy ML models using Flask.
+                </p>
+              </div>
+
+              <div>
+                <p class="text-base font-bold text-slate-950">Canvas Format</p>
+                <p class="mt-2 font-semibold text-slate-900">28 x 28</p>
+                <p class="mt-1">
+                  The digit is cropped, centered, and resized to match the MNIST layout before inference.
+                </p>
+              </div>
+
+              <div>
+                <p class="text-base font-bold text-slate-950">Prediction Flow</p>
+                <p class="mt-2 font-semibold text-slate-900">Canvas to Flask</p>
+                <p class="mt-1">
+                  JavaScript captures the user's drawing from the canvas, Flask processes and formats the
+                  pixel data, and the trained ML model predicts and returns the digit.
+                </p>
+              </div>
+            </div>
+
+            <div class="space-y-5">
+              <div>
+                <p class="text-base font-bold text-slate-950">Loaded Model</p>
+                <p class="mt-2">
+                  The application uses a K-Nearest Neighbors (KNN) classifier to make predictions.
+                </p>
+                <p class="mt-3 font-semibold text-slate-900">How it works:</p>
+                <p class="mt-1">
+                  When you draw a digit, the model compares it with similar examples it has seen before and
+                  predicts the digit based on the closest matches.
+                </p>
+                <p class="mt-3">
+                  Pipeline: The processed input is passed directly into the KNN model to generate the final prediction.
+                </p>
+              </div>
+
+              <div>
+                <p class="text-base font-bold text-slate-950">Feature Mapping</p>
+                <p class="mt-2">
+                  Your drawing is converted into 784 pixel values (28 x 28 image), just like the original
+                  training data. These pixel values are then passed through the same preprocessing steps used
+                  during training: StandardScaler -> PCA. PCA reduces the 784 features down to
+                  <span class="font-semibold text-slate-900">{{ meta.expected_model_features if meta and
+                    meta.expected_model_features else 300 }}</span>
+                  important components, which the model uses for prediction.
+                </p>
+                <p class="mt-3">
+                  Model input size:
+                  <span class="font-mono text-slate-900">{{ meta.expected_model_features if meta and
+                    meta.expected_model_features else 300 }}</span>
+                  (PCA-transformed features)
+                </p>
+                <p>
+                  Model file:
+                  <span class="font-mono text-slate-900">pipe.pkl</span>
+                  (trained model)
+                </p>
+                <p>
+                  Dataset:
+                  <span class="font-mono text-slate-900">mnist_train.csv</span>
+                  (used to rebuild scaling + PCA)
+                </p>
+                <p>
+                  Cache:
+                  <span class="font-mono text-slate-900">mnist_inference_bundle.pkl</span>
+                  (stores precomputed preprocessing for faster predictions)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 flex flex-wrap gap-3 border-t border-slate-900/10 pt-5">
+            <a href="https://github.com/udaygupta9081" target="_blank" rel="noreferrer"
+              class="social-chip inline-flex items-center gap-2 rounded-2xl border border-slate-900/10 bg-slate-950 px-4 py-3 text-sm font-medium text-white transition hover:-translate-y-0.5 hover:bg-slate-900">
+              <svg viewBox="0 0 24 24" aria-hidden="true" class="h-5 w-5 fill-current">
+                <path
+                  d="M12 .5C5.65.5.5 5.66.5 12.02c0 5.1 3.3 9.43 7.88 10.96.58.11.79-.25.79-.56 0-.28-.01-1.2-.02-2.17-3.21.7-3.89-1.36-3.89-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.2 1.77 1.2 1.03 1.76 2.7 1.25 3.36.95.1-.75.4-1.25.72-1.54-2.56-.29-5.25-1.28-5.25-5.72 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.19 1.18a10.9 10.9 0 0 1 5.82 0c2.22-1.49 3.18-1.18 3.18-1.18.64 1.59.24 2.76.12 3.05.74.81 1.18 1.84 1.18 3.1 0 4.45-2.69 5.43-5.26 5.71.41.36.77 1.07.77 2.16 0 1.56-.01 2.81-.01 3.19 0 .31.21.68.8.56a11.53 11.53 0 0 0 7.86-10.96C23.5 5.66 18.35.5 12 .5Z" />
+              </svg>
+              <span>GitHub</span>
+            </a>
+
+            <a href="https://www.linkedin.com/in/uday-gupta-in/" target="_blank" rel="noreferrer"
+              class="social-chip inline-flex items-center gap-2 rounded-2xl border border-slate-900/10 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:-translate-y-0.5 hover:bg-slate-100">
+              <svg viewBox="0 0 24 24" aria-hidden="true" class="h-5 w-5 fill-current">
+                <path
+                  d="M20.45 20.45h-3.56v-5.58c0-1.33-.03-3.03-1.85-3.03-1.86 0-2.15 1.45-2.15 2.94v5.67H9.33V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29ZM5.31 7.43a2.07 2.07 0 1 1 0-4.14 2.07 2.07 0 0 1 0 4.14ZM7.09 20.45H3.53V9h3.56v11.45ZM22.23 0H1.77C.79 0 0 .78 0 1.74v20.52C0 23.22.79 24 1.77 24h20.46c.98 0 1.77-.78 1.77-1.74V1.74C24 .78 23.21 0 22.23 0Z" />
+              </svg>
+              <span>LinkedIn</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="rounded-[2rem] border border-slate-900/10 bg-slate-950 p-6 text-slate-100 shadow-[0_30px_80px_rgba(15,23,42,0.2)] sm:p-8">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-[0.28em] text-cyan-200">Interactive Pad</p>
+            <h2 class="mt-3 text-3xl font-bold tracking-[-0.03em] text-white">Write one digit here</h2>
+            <p class="mt-3 max-w-lg text-sm leading-7 text-slate-300">
+              Draw with your mouse, touch, or stylus. Strong white strokes on the black canvas usually match MNIST best.
+            </p>
+          </div>
+
+          <div
+            class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.28em] text-slate-300">
+            White stroke on black canvas
+          </div>
+        </div>
+
+        <div class="mt-6 rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-4">
+          <div
+            class="canvas-wrap mx-auto max-w-[26rem] rounded-[1.5rem] border border-white/10 bg-black p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]">
+            <canvas id="digit-canvas" width="280" height="280"
+              class="mx-auto block aspect-square w-full rounded-[1.25rem] border border-white/10 bg-black"></canvas>
+          </div>
+        </div>
+
+        <div class="mt-5 flex flex-wrap gap-3">
+          <button id="predict-button" type="button"
+            class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-amber-400 via-spark to-tide px-5 py-3 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+            {% if not model_ready %}disabled{% endif %}>
+            Predict Digit
+          </button>
+
+          <button id="clear-button" type="button"
+            class="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-cyan-300/50">
+            Clear Canvas
+          </button>
+        </div>
+
+        <div id="loader"
+          class="mt-5 hidden items-center gap-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+          <span class="spinner"></span>
+          <span>Preparing your digit for model prediction...</span>
+        </div>
+
+        <section id="result-card" class="mt-5 hidden rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
+          <p class="text-xs uppercase tracking-[0.28em] text-slate-400">Prediction</p>
+          <div class="mt-4 grid gap-5 md:grid-cols-[1fr_9rem]">
+            <div>
+              <p class="text-sm text-slate-300">The model predicts:</p>
+              <p id="digit-result" class="mt-2 text-6xl font-bold tracking-[-0.05em] text-white"></p>
+              <p id="confidence-result" class="mt-3 text-sm text-cyan-200"></p>
+
+              <div class="mt-5">
+                <p class="text-xs uppercase tracking-[0.28em] text-slate-400">Top guesses</p>
+                <ul id="top-predictions" class="mt-3 grid gap-2"></ul>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-white/10 bg-slate-900/80 p-3">
+              <p class="text-center text-xs uppercase tracking-[0.22em] text-slate-400">28 x 28 view</p>
+              <img id="processed-preview" alt="Processed digit preview"
+                class="mt-3 h-28 w-28 rounded-2xl border border-white/10 bg-black object-contain image-rendering-pixelated" />
+            </div>
+          </div>
+        </section>
+
+        <section id="error-card"
+          class="mt-5 hidden rounded-[1.5rem] border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm leading-6 text-rose-100">
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    window.APP_CONFIG = {
+      modelReady: {{ model_ready | tojson }},
+    };
+  </script>
+  <script src="/static/js/script.js"></script>
+</body>
+
+</html>
