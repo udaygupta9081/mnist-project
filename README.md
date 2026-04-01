@@ -5,7 +5,7 @@ A Machine Learning powered web application that predicts handwritten digits (0�
 ---
 
 ## 🚀 Features
-
+* To see notebook go to https://github.com/udaygupta9081/mnist-digit-classification
 * ✍️ Draw digits directly on the canvas
 * 🤖 Real-time prediction using trained ML model
 * 🌐 Simple and interactive web interface
