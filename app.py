@@ -66,7 +66,22 @@ def load_model():
     if not MODEL_PATH.exists():
         raise ArtifactError(f"MNIST model file not found: {MODEL_PATH}")
     with MODEL_PATH.open("rb") as model_file:
-        return pickle.load(model_file)
+        obj = pickle.load(model_file)
+    
+    # If pkl was saved as a dict, extract the model from it
+    if isinstance(obj, dict):
+        # Try common keys
+        for key in ("model", "classifier", "estimator", "clf", "pipe", "pipeline"):
+            if key in obj:
+                print(f"Loaded model from dict key: '{key}'")
+                return obj[key]
+        # If none of the known keys match, print available keys to help debug
+        raise ArtifactError(
+            f"mnist.pkl is a dict but no known model key found. "
+            f"Available keys: {list(obj.keys())}"
+        )
+    
+    return obj
 
 
 def load_raw_feature_columns(model) -> tuple[list[str], str]:
@@ -85,7 +100,6 @@ def load_raw_feature_columns(model) -> tuple[list[str], str]:
         f"{r}x{c}" for r in range(1, IMAGE_SIZE + 1) for c in range(1, IMAGE_SIZE + 1)
     ]
     return feature_columns, "generated fallback"
-
 
 def describe_model(model) -> tuple[str, str]:
     model_name = f"{type(model).__module__}.{type(model).__name__}"
@@ -151,7 +165,30 @@ def detect_inference_mode(model) -> tuple[str, int | None]:
 
 def bootstrap_service() -> dict:
     ensure_artifacts()
-    model = load_model()
+
+    # ── DEBUG: inspect what's inside the pkl ────────────────────────────────
+    with MODEL_PATH.open("rb") as f:
+        raw = pickle.load(f)
+    print(f"[DEBUG] PKL type: {type(raw)}")
+    if isinstance(raw, dict):
+        print(f"[DEBUG] PKL keys: {list(raw.keys())}")
+
+    # ── Unwrap if pkl was saved as a dict ────────────────────────────────────
+    if isinstance(raw, dict):
+        for key in ("model", "classifier", "estimator", "clf", "pipe", "pipeline"):
+            if key in raw:
+                print(f"[DEBUG] Extracting model from dict key: '{key}'")
+                actual_model = raw[key]
+                break
+        else:
+            raise ArtifactError(
+                f"mnist.pkl is a dict but no known model key was found. "
+                f"Available keys: {list(raw.keys())}"
+            )
+    else:
+        actual_model = raw
+
+    model = actual_model
     feature_columns, feature_source = load_raw_feature_columns(model)
 
     if len(feature_columns) != IMAGE_SIZE * IMAGE_SIZE:
