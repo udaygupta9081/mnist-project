@@ -1,6 +1,7 @@
 flask
 numpy
 pandas
-scikit-learn
 pillow
+scikit-learn
+gdown
 gunicorn
