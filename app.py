@@ -356,8 +356,9 @@ def predict():
         return jsonify({"error": str(exc)}), 400
     except ArtifactError as exc:
         return jsonify({"error": str(exc)}), 500
-    except Exception:
-        return jsonify({"error": "Prediction failed. Please check that the model and bundle are valid."}), 500
+    except Exception as e:
+        print("FULL ERROR:", str(e))   # shows in Render logs
+        return jsonify({"error": str(e)}), 500
 
     return jsonify({
         "digit": predicted_digit,
