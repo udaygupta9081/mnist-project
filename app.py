@@ -41,7 +41,7 @@ class ArtifactError(RuntimeError):
     """Raised when a required artifact is missing or incompatible."""
 
 
-# ── Fix #1 + #2: fuzzy=True + proper error raising ──────────────────────────
+# ── FIX #1 + #2: fuzzy=True + proper error raising ──────────────────────────
 def download_from_gdrive(file_id: str, dest_path: Path) -> None:
     """Download a file from Google Drive using gdown if it doesn't exist."""
     if dest_path.exists():
@@ -59,32 +59,11 @@ def ensure_artifacts() -> None:
     """Download all required artifacts from Google Drive if not present locally."""
     download_from_gdrive(GDRIVE_MODEL_ID,   MODEL_PATH)
     download_from_gdrive(GDRIVE_BUNDLE_ID,  PREPROCESS_BUNDLE_PATH)
-    download_from_gdrive(GDRIVE_DATASET_ID, DATASET_PATH)   # Fix #5
-
-
-def load_model():
-    if not MODEL_PATH.exists():
-        raise ArtifactError(f"MNIST model file not found: {MODEL_PATH}")
-    with MODEL_PATH.open("rb") as model_file:
-        obj = pickle.load(model_file)
-    
-    # If pkl was saved as a dict, extract the model from it
-    if isinstance(obj, dict):
-        # Try common keys
-        for key in ("model", "classifier", "estimator", "clf", "pipe", "pipeline"):
-            if key in obj:
-                print(f"Loaded model from dict key: '{key}'")
-                return obj[key]
-        # If none of the known keys match, print available keys to help debug
-        raise ArtifactError(
-            f"mnist.pkl is a dict but no known model key found. "
-            f"Available keys: {list(obj.keys())}"
-        )
-    
-    return obj
+    download_from_gdrive(GDRIVE_DATASET_ID, DATASET_PATH)
 
 
 def load_raw_feature_columns(model) -> tuple[list[str], str]:
+    """Load feature column names from dataset or model metadata."""
     if DATASET_PATH.exists():
         header = pd.read_csv(DATASET_PATH, nrows=0)
         feature_columns = [str(c) for c in header.columns[1:]]
@@ -101,7 +80,9 @@ def load_raw_feature_columns(model) -> tuple[list[str], str]:
     ]
     return feature_columns, "generated fallback"
 
+
 def describe_model(model) -> tuple[str, str]:
+    """Generate human-readable description of model type and pipeline."""
     model_name = f"{type(model).__module__}.{type(model).__name__}"
     if hasattr(model, "steps"):
         return model_name, " -> ".join(str(n) for n, _ in model.steps)
@@ -109,6 +90,7 @@ def describe_model(model) -> tuple[str, str]:
 
 
 def load_preprocessing_bundle(n_components: int) -> dict:
+    """Load or create preprocessing bundle with scaler and PCA."""
     if PREPROCESS_BUNDLE_PATH.exists():
         with PREPROCESS_BUNDLE_PATH.open("rb") as f:
             bundle = pickle.load(f)
@@ -148,6 +130,7 @@ def load_preprocessing_bundle(n_components: int) -> dict:
 
 
 def detect_inference_mode(model) -> tuple[str, int | None]:
+    """Detect whether model expects raw pixels or PCA-reduced features."""
     expected = getattr(model, "n_features_in_", None)
     if expected is not None:
         expected = int(expected)
@@ -164,29 +147,38 @@ def detect_inference_mode(model) -> tuple[str, int | None]:
 
 
 def bootstrap_service() -> dict:
+    """Initialize and validate the MNIST service with all models and preprocessing."""
     ensure_artifacts()
 
-    # ── DEBUG: inspect what's inside the pkl ────────────────────────────────
+    # ── Load and auto-detect model from pickle ──────────────────────────────
     with MODEL_PATH.open("rb") as f:
         raw = pickle.load(f)
-    print(f"[DEBUG] PKL type: {type(raw)}")
-    if isinstance(raw, dict):
-        print(f"[DEBUG] PKL keys: {list(raw.keys())}")
 
-    # ── Unwrap if pkl was saved as a dict ────────────────────────────────────
+    print(f"[DEBUG] PKL type: {type(raw)}")
+
+    # 🔥 FIX: auto-detect model instead of guessing key names
     if isinstance(raw, dict):
-        for key in ("model", "classifier", "estimator", "clf", "pipe", "pipeline"):
-            if key in raw:
-                print(f"[DEBUG] Extracting model from dict key: '{key}'")
-                actual_model = raw[key]
+        print(f"[DEBUG] Available keys in PKL: {list(raw.keys())}")
+
+        actual_model = None
+        for key, value in raw.items():
+            if hasattr(value, "predict"):
+                print(f"[DEBUG] Found model at key: '{key}'")
+                actual_model = value
                 break
-        else:
+
+        if actual_model is None:
             raise ArtifactError(
-                f"mnist.pkl is a dict but no known model key was found. "
-                f"Available keys: {list(raw.keys())}"
+                f"No valid model found inside dict. Keys: {list(raw.keys())}"
             )
     else:
         actual_model = raw
+
+    # ── Validate that we have a model ───────────────────────────────────────
+    if not hasattr(actual_model, "predict"):
+        raise ArtifactError(
+            "Loaded object is not a valid ML model (no predict method)."
+        )
 
     model = actual_model
     feature_columns, feature_source = load_raw_feature_columns(model)
@@ -240,6 +232,7 @@ def bootstrap_service() -> dict:
 
 
 def decode_canvas_image(data_url: str) -> Image.Image:
+    """Decode base64 canvas image and convert to grayscale."""
     if not isinstance(data_url, str) or "," not in data_url:
         raise ValueError("Canvas image is missing or invalid.")
     header, encoded = data_url.split(",", 1)
@@ -256,6 +249,7 @@ def decode_canvas_image(data_url: str) -> Image.Image:
 
 
 def shift_to_center(image_array: np.ndarray) -> np.ndarray:
+    """Shift digit to center of image using numpy roll."""
     coords = np.argwhere(image_array > 0)
     if coords.size == 0:
         raise ValueError("Please draw a digit before predicting.")
@@ -276,6 +270,7 @@ def shift_to_center(image_array: np.ndarray) -> np.ndarray:
 
 
 def preprocess_digit_image(data_url: str) -> tuple[np.ndarray, np.ndarray]:
+    """Preprocess canvas image: crop, resize, center, and normalize."""
     grayscale = decode_canvas_image(data_url)
     pixel_array = np.asarray(grayscale, dtype=np.uint8)
     mask = pixel_array > PIXEL_THRESHOLD
@@ -297,6 +292,7 @@ def preprocess_digit_image(data_url: str) -> tuple[np.ndarray, np.ndarray]:
 
 
 def image_array_to_data_url(image_array: np.ndarray) -> str:
+    """Convert numpy array to base64 PNG data URL."""
     preview = Image.fromarray(image_array.astype(np.uint8), mode="L")
     buffer = io.BytesIO()
     preview.save(buffer, format="PNG")
@@ -304,6 +300,7 @@ def image_array_to_data_url(image_array: np.ndarray) -> str:
 
 
 def prepare_model_input(service: dict, raw_pixels: np.ndarray):
+    """Prepare input for model: apply scaling and PCA if needed."""
     raw_frame = pd.DataFrame(raw_pixels, columns=service["feature_columns"])
     if service["inference_mode"] == "direct_model":
         return raw_frame
@@ -312,6 +309,7 @@ def prepare_model_input(service: dict, raw_pixels: np.ndarray):
 
 
 def resolve_model_classes(model, class_count: int):
+    """Resolve digit class labels from model or generate default."""
     classes = getattr(model, "classes_", None)
     if classes is None and hasattr(model, "steps") and model.steps:
         classes = getattr(model.steps[-1][1], "classes_", None)
@@ -330,6 +328,7 @@ except Exception as exc:
 
 
 def get_service() -> dict:
+    """Retrieve initialized service or raise error if not ready."""
     if SERVICE is None:
         raise ArtifactError(BOOT_ERROR or "The MNIST service is not ready yet.")
     return SERVICE
@@ -337,6 +336,7 @@ def get_service() -> dict:
 
 @app.get("/")
 def index():
+    """Serve main HTML page with model status."""
     return render_template(
         "index.html",
         model_ready=SERVICE is not None,
@@ -345,18 +345,22 @@ def index():
     )
 
 
-# ── Fix #4: serve from correct static subdirectories ────────────────────────
+# ── FIX #4: serve from correct static subdirectories ────────────────────────
 @app.get("/assets/css/<path:filename>")
 def css_asset(filename: str):
+    """Serve CSS files."""
     return send_from_directory(BASE_DIR / "static" / "css", filename)
+
 
 @app.get("/assets/js/<path:filename>")
 def js_asset(filename: str):
+    """Serve JavaScript files."""
     return send_from_directory(BASE_DIR / "static" / "js", filename)
 
 
 @app.get("/health")
 def health():
+    """Health check endpoint."""
     if SERVICE is None:
         return jsonify({"status": "error", "message": BOOT_ERROR}), 500
     return jsonify({"status": "ok", "meta": SERVICE["meta"]})
@@ -364,6 +368,7 @@ def health():
 
 @app.post("/predict")
 def predict():
+    """Process digit prediction from canvas image."""
     payload = request.get_json(silent=True)
     if payload is None:
         return jsonify({"error": "Request body must be valid JSON."}), 400
@@ -393,7 +398,7 @@ def predict():
     except ArtifactError as exc:
         return jsonify({"error": str(exc)}), 500
     except Exception as e:
-        print("FULL ERROR:", str(e))   # shows in Render logs
+        print("FULL ERROR:", str(e))
         return jsonify({"error": str(e)}), 500
 
     return jsonify({
@@ -404,6 +409,6 @@ def predict():
     })
 
 
-# Fix #3: gunicorn uses `app` object directly; __main__ block only for local dev
+# FIX #3: gunicorn uses `app` object directly; __main__ block only for local dev
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False)
