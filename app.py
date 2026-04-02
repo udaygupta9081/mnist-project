@@ -99,8 +99,7 @@ def load_preprocessing_bundle(n_components: int) -> dict:
         with PREPROCESS_BUNDLE_PATH.open("rb") as f:
             bundle = pickle.load(f)
         if (
-            bundle.get("dataset_path") == str(DATASET_PATH)
-            and bundle.get("components") == n_components
+            bundle.get("components") == n_components
             and bundle.get("feature_columns")
             and bundle.get("scaler") is not None
             and bundle.get("pca") is not None
