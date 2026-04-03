@@ -26,7 +26,7 @@ MODEL_PATH = Path(os.getenv("MNIST_MODEL_PATH", str(DEFAULT_MODEL_PATH)))
 DATASET_PATH = Path(os.getenv("MNIST_DATA_PATH", str(DEFAULT_DATASET_PATH)))
 
 # Google Drive file IDs
-GDRIVE_MODEL_ID    = "1SGiDPzwcR4JMcUdDXqo4E668khVwdXzN"   # mnist.pkl
+GDRIVE_MODEL_ID    = "1NEwgZbOs_rn0e7ubRjSFemuiqo029hHu"   # mnist.pkl
 GDRIVE_BUNDLE_ID   = "1m_YbqfVgN_bsScnFXydrN3AzMMwpMScN"   # mnist_inference_bundle.pkl
 GDRIVE_DATASET_ID  = "1aPfBmtkkhxTw_Jnnc1hQf0HBY88UY93h"   # mnist_train.csv
 
