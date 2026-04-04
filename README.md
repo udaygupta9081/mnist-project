@@ -100,17 +100,13 @@ Due to GitHub file size limitations, the trained model and dataset are not inclu
 ---
 
 ## 🎯 Future Improvements
-
-* Deploy the app on cloud (Render / AWS)
-* Improve model accuracy
 * Add deep learning (CNN)
-* Mobile-friendly UI
 
 ---
 
 ## 👨‍💻 Author
 
-**Uday Gupta**
+**Uday Kumar Gupta**
 GitHub: https://github.com/udaygupta9081
 
 ---
